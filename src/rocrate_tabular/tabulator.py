@@ -236,7 +236,7 @@ class ROCrateTabulator:
                 )
         return props
 
-    # Both of the following mutate entity_data
+    # Both of the following mutate entity_data. I'm not very happy about it
 
     def set_property(self, entity_data, name, value, target_id):
         """Add a property to entity_data, and add the target_id if defined"""
@@ -281,19 +281,16 @@ class ROCrateTabulator:
         FROM property
         WHERE property_label = '@type' AND value = 'File' AND LOWER(source_id) LIKE '%.csv'
     """)
-        for entity_id in [row["source_id"] for row in files]:
-            entity_id = entity_id.replace("#", "")
-            self.add_csv(self.crate_dir / entity_id, "csv_files")
-
-    def add_csv(self, csv_path, table_name):
-        with open(csv_path, newline="") as f:
-            reader = csv.DictReader(
-                f
-            )  # Use DictReader to read each row as a dictionary
+        for entity in files:
+            entity_id = entity["source_id"]
+            print("Adding csv for {entity_id}")
+            csvtext = self.crate.get(entity_id).fetch()
+            reader = csv.DictReader(csvtext.splitlines())
             rows = list(reader)
+            print(rows)
             if rows:
                 # Insert rows into the table (the table will be created if it doesn't exist)
-                self.db[table_name].insert_all(rows, pk="id", alter=True, ignore=True)
+                self.db["csv_files"].insert_all(rows, pk="id", alter=True, ignore=True)
             # `pk="id"` assumes there's an 'id' column; if no primary key, you can remove it.
 
 
@@ -354,7 +351,7 @@ Updated config file: {args.config}, edit this file to change the flattening conf
 """)
 
     if args.csv:
-        tb.find_csv_contents()
+        tb.find_csv()
 
     tb.export_csv()
 
