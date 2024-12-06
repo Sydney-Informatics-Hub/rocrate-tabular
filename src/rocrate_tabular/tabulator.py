@@ -1,3 +1,5 @@
+from os import PathLike
+
 from rocrate_tabular.tinycrate import TinyCrate, TinyCrateException
 from argparse import ArgumentParser
 from pathlib import Path
@@ -50,8 +52,19 @@ class ROCrateTabulator:
 
     def load_config(self, config_file):
         """Load config from file"""
-        with open(config_file, "r") as jfh:
-            self.cf = json.load(jfh)
+        close_file = False
+        if isinstance(config_file, (str, PathLike)):
+            config_file = open(config_file, "r")
+            close_file = True
+        else:
+            config_file.seek(0)
+
+        self.cf = json.load(config_file)
+
+        if close_file:
+            config_file.close()
+        else:
+            config_file.seek(0)
 
     def infer_config(self):
         """Create a default config based on the properties table"""
@@ -76,8 +89,19 @@ class ROCrateTabulator:
 
     def write_config(self, config_file):
         """Write the config file with any changes made"""
-        with open(config_file, "w") as f:
-            json.dump(self.cf, f, indent=4)
+        close_file = False
+        if isinstance(config_file, (str, PathLike)):
+            config_file = open(config_file, "w")
+            close_file = True
+        else:
+            config_file.seek(0)
+
+        json.dump(self.cf, config_file, indent=4)
+
+        if close_file:
+            config_file.close()
+        else:
+            config_file.seek(0)
 
     def crate_to_db(self, crate_uri, db_file):
         """Load the crate and build the properties table"""
