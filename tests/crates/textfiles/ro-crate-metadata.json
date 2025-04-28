@@ -25,7 +25,10 @@
             {
                 "@id": "https://creativecommons.org/licenses/by-nc-sa/3.0/au/"
             },
-            "hasPart": { "@id": "#doc001" }
+            "hasPart": [
+                { "@id": "doc001" },
+                { "@id": "doc002" }
+            ]
         },
         {
             "@id": "doc001",
@@ -46,6 +49,19 @@
             "@type": "File", 
             "name": "text file",
             "contentEncoding": "text/plain"
+        },
+        {
+            "@id": "doc002",
+            "@type": "Dataset",
+            "name": "A csv file for testing",
+            "hasPart": [
+                { "@id": "doc002/utterances.csv" }
+            ]
+        },
+        {   "@id": "doc002/utterances.csv",
+            "@type": "File", 
+            "name": "CSV file",
+            "contentEncoding": "text/csv"
         },
         {
             "@id": "https://creativecommons.org/licenses/by-nc-sa/3.0/au/",
