@@ -1,18 +1,20 @@
-from os import PathLike
-
-from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
-from argparse import ArgumentParser
-from pathlib import Path
-from sqlite_utils import Database
-from tqdm import tqdm
 import csv
 import json
+import logging
 import re
-import requests
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass, field
+from os import PathLike
+from pathlib import Path
 
-# FIXME: add real logging
+import requests
+from sqlite_utils import Database
+from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
 
 # TERMINOLOGY
 
@@ -63,7 +65,6 @@ PROPERTIES = {
 }
 
 MAX_NUMBERED_COLS = 10
-# MAX_NUMBERED_COLS = 999  # sqllite limit
 
 
 def get_as_list(v):
@@ -265,7 +266,7 @@ class ROCrateTabulator:
         # get all types
 
         for t in self.fetch_types():
-            print(f"@type: {t}")
+            logger.info(f"@type: {t}")
             query = """
     SELECT p.source_id, p.property_label, count(p.target_id) as n_links
     FROM property as p
@@ -281,7 +282,7 @@ class ROCrateTabulator:
             summary = self.db.query(query, [t])
             for row in summary:
                 if row["n_links"] > 0:
-                    print(
+                    logger.info(
                         row["source_id"]
                         + "."
                         + row["property_label"]
