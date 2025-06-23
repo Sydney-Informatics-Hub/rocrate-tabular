@@ -3,6 +3,7 @@ from rocrate_tabular.tabulator import ROCrateTabulator, parse_args, main
 from tinycrate.tinycrate import TinyCrate
 from collections import defaultdict
 from util import read_config, write_config
+import sys
 
 
 def test_smoke_cli(crates, tmp_path):
@@ -11,6 +12,24 @@ def test_smoke_cli(crates, tmp_path):
     conffile = cwd / "config.json"
     args = parse_args(["-c", str(conffile), crates["minimal"], str(dbfile)])
     main(args)
+
+
+def test_no_stdout(crates, tmp_path, capsys):
+    cwd = Path(tmp_path)
+    dbfile = cwd / "sqlite.db"
+    conffile = cwd / "config.json"
+    args = parse_args(["-c", str(conffile), crates["minimal"], str(dbfile)])
+    main(args)
+    captured = capsys.readouterr()
+    if captured.out != "":
+        print(
+            "This test is failing because you're printing to stdout.\n"
+            "The library needs to run in contexts where it pipes stuff\n"
+            "to stdout, so we need to keep that clean. Please use the\n"
+            "logger for messages and debugging.",
+            file=sys.stderr,
+        )
+        assert captured.out == ""
 
 
 def test_minimal(crates, tmp_path):

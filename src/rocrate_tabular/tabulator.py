@@ -1,18 +1,20 @@
-from os import PathLike
-
-from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
-from argparse import ArgumentParser
-from pathlib import Path
-from sqlite_utils import Database
-from tqdm import tqdm
 import csv
 import json
+import logging
 import re
-import requests
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass, field
+from os import PathLike
+from pathlib import Path
 
-# FIXME: add real logging
+import requests
+from sqlite_utils import Database
+from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
 
 # TERMINOLOGY
 
@@ -63,7 +65,6 @@ PROPERTIES = {
 }
 
 MAX_NUMBERED_COLS = 10
-# MAX_NUMBERED_COLS = 999  # sqllite limit
 
 
 def get_as_list(v):
@@ -265,7 +266,7 @@ class ROCrateTabulator:
         # get all types
 
         for t in self.fetch_types():
-            print(f"@type: {t}")
+            logger.info(f"@type: {t}")
             query = """
     SELECT p.source_id, p.property_label, count(p.target_id) as n_links
     FROM property as p
@@ -281,7 +282,7 @@ class ROCrateTabulator:
             summary = self.db.query(query, [t])
             for row in summary:
                 if row["n_links"] > 0:
-                    print(
+                    logger.info(
                         row["source_id"]
                         + "."
                         + row["property_label"]
@@ -373,7 +374,7 @@ class ROCrateTabulator:
         for prop_counts in self.fetch_relation_counts(table):
             if prop_counts["n_links"] > MAX_NUMBERED_COLS:
                 label = prop_counts["property_label"]
-                print(f"{table}.{label} > {MAX_NUMBERED_COLS} relations")
+                logger.info(f"{table}.{label} > {MAX_NUMBERED_COLS} relations")
                 self.cf["tables"][table]["junctions"].append(label)
 
     # Some helper methods for wrapping SQLite statements
@@ -481,7 +482,7 @@ class ROCrateTabulator:
                     column_props["propertyUrl"] = uri
                     definition = self.crate.get(uri)
                     if definition:
-                        print("definition", definition["rdfs:comment"])
+                        logger.info("definition", definition["rdfs:comment"])
                         column_props["description"] = definition["rdfs:comment"]
                 # TODO -- look up local definitions and add a description
                 col_id = "#COLUMN_" + csv_filename + "_" + key
@@ -498,7 +499,7 @@ class ROCrateTabulator:
             )
             self.schemaCrate.add("csvw:Schema", schema_id, schema_props)
 
-            print(f"Exported {csv_filename} to {csv_path}")
+            logger.info(f"Exported {csv_filename} to {csv_path}")
 
         root_entity = self.schemaCrate.root()
         root_entity["hasPart"] = files
@@ -571,17 +572,28 @@ def parse_args(arg_list=None):
         action="store_true",
         help="Report on the database structure",
     )
+    ap.add_argument(
+        "--loglevel",
+        default="info",
+        type=str,
+        help="Log level",
+    )
     return ap.parse_args(arg_list)
 
 
 def main(args):
+    logger.setLevel(logging.INFO)
+    logch = logging.StreamHandler()
+    logch.setLevel(args.loglevel.upper())
+    logger.addHandler(logch)
+
     tb = ROCrateTabulator()
 
     if Path(args.output).is_file() and not args.rebuild:
-        print("Loading properties table")
+        logger.info("Loading properties table")
         tb.crate_to_db(args.crate, args.output, rebuild=False)
     else:
-        print("Building properties table")
+        logger.info("Building properties table")
         tb.crate_to_db(args.crate, args.output)
 
     if args.structure:
@@ -589,20 +601,20 @@ def main(args):
         sys.exit()
 
     if args.config.is_file():
-        print(f"Loading config from {args.config}")
+        logger.info(f"Loading config from {args.config}")
         tb.read_config(args.config)
     else:
-        print(f"Config {args.config} not found - generating default")
+        logger.info(f"Config {args.config} not found - generating default")
         tb.infer_config()
 
     tb.text_prop = args.text
     for table in tb.cf["tables"]:
-        print(f"Building entity table for {table}")
+        logger.info(f"Building entity table for {table}")
         allprops = tb.entity_table(table)
         tb.cf["tables"][table]["all_props"] = list(allprops)
 
     tb.write_config(args.config)
-    print(f"""
+    logger.info(f"""
 Updated config file: {args.config}, edit this file to change the flattening configuration or deleted it to start over
 """)
 
