@@ -1,9 +1,11 @@
-from pathlib import Path
-from rocrate_tabular.tabulator import ROCrateTabulator, parse_args, main
-from tinycrate.tinycrate import TinyCrate
-from collections import defaultdict
-from util import read_config, write_config
 import sys
+from collections import defaultdict
+from pathlib import Path
+
+from tinycrate.tinycrate import TinyCrate
+from util import read_config, write_config
+
+from rocrate_tabular.tabulator import ROCrateTabulator, main, parse_args
 
 
 def test_smoke_cli(crates, tmp_path):
@@ -53,6 +55,26 @@ def test_config(crates, tmp_path):
     tb2 = ROCrateTabulator()
     tb2.crate_to_db(crates["minimal"], dbfile)
     tb2.read_config(conffile)
+
+
+def test_potential_tables(crates, tmp_path):
+    """Test that the first-pass config has a potential_table for each
+    type of entity"""
+    cwd = Path(tmp_path)
+    dbfile = cwd / "sqlite.db"
+    conffile = cwd / "config.json"
+    tb = ROCrateTabulator()
+    tb.crate_to_db(crates["languageFamily"], dbfile)
+    tb.infer_config()
+    tb.write_config(conffile)
+    tb.close()  # for Windows
+    cf = read_config(conffile)
+    expect_tables = set()
+    crate = TinyCrate(crates["languageFamily"])
+    for entity in crate.all():
+        expect_tables.update(entity.type)
+    for table in expect_tables:
+        assert table in cf["potential_tables"]
 
 
 def test_one_to_lots(crates, tmp_path):
