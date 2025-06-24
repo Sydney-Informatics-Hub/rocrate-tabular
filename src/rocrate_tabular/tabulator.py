@@ -454,9 +454,7 @@ class ROCrateTabulator:
                 )
                 writer.writeheader()
                 # Check if the key is a string and replace newlines
-
                 keys = set()
-
                 for row in result:
                     for key, value in row.items():
                         if isinstance(value, str):
@@ -477,13 +475,30 @@ class ROCrateTabulator:
                     "label": base_prop,
                 }
                 uri = self.crate.resolve_term(base_prop)
-
+                print("URI", uri)
                 if uri:
                     column_props["propertyUrl"] = uri
                     definition = self.crate.get(uri)
                     if definition:
-                        logger.info("definition", definition["rdfs:comment"])
+                        logger.info(definition)
                         column_props["description"] = definition["rdfs:comment"]
+                        if definition["rangeIncludes"]:
+                            column_props["rangeIncludes"] = definition["rangeIncludes"]
+                            self.schemaCrate.add(definition["@type"], uri, definition.items( ))
+
+                            term_set = self.crate.get(definition["rangeIncludes"]["@id"])
+                            if term_set and term_set.type == "DefinedTermSet":
+
+                                self.schemaCrate.add(
+                                    "DefinedTermSet",
+                                    term_set["@id"],
+                                    term_set.items(),
+                                )
+
+                            terms = [e for e in self.crate.all() if e.type == "DefinedTerm" and e["inDefinedTermSet"] and e["inDefinedTermSet"]["@id"] == definition["rangeIncludes"]["@id"]]
+                            for term in terms:
+                                self.schemaCrate.add(term["@type"], term["@id"], term.items())
+    
                 # TODO -- look up local definitions and add a description
                 col_id = "#COLUMN_" + csv_filename + "_" + key
                 self.schemaCrate.add("csvw:Column", col_id, column_props)

@@ -73,3 +73,14 @@ def test_export(crates, csv_headers, tmp_path):
 
     for ro in objects:
         assert ro["@id"] in csv_data
+
+    # Test that the csv export crate has the right CSVW schema
+    csv_crate = TinyCrate(csvout / "" )
+    colums = [e for e in csv_crate.all() if e.type == "csvw:Column"]
+    assert len(colums) == len(csv_headers)
+
+    terms = [e for e in csv_crate.all() if e.type == "DefinedTerm"]
+    assert len(terms) == 7
+
+    
+

@@ -1160,7 +1160,10 @@
       "@id": "arcp://name,custom/terms#languageSubFamily",
       "@type": "rdf:Property",
       "name": "Language Sub-Family",
-      "description": "A group of languages related through descent from a common ancestor."
+      "description": "A group of languages related through descent from a common ancestor.",
+      "rangeIncludes": {
+         "@id": "arcp://name,custom/terms#LanguageSubFamilyTerms"
+       }
     },
     {
       "@id": "ro-crate-metadata-w-subcollections_20250610.xlsx",
