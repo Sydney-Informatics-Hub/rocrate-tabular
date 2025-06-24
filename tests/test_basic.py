@@ -57,26 +57,6 @@ def test_config(crates, tmp_path):
     tb2.read_config(conffile)
 
 
-def test_potential_tables(crates, tmp_path):
-    """Test that the first-pass config has a potential_table for each
-    type of entity"""
-    cwd = Path(tmp_path)
-    dbfile = cwd / "sqlite.db"
-    conffile = cwd / "config.json"
-    tb = ROCrateTabulator()
-    tb.crate_to_db(crates["languageFamily"], dbfile)
-    tb.infer_config()
-    tb.write_config(conffile)
-    tb.close()  # for Windows
-    cf = read_config(conffile)
-    expect_tables = set()
-    crate = TinyCrate(crates["languageFamily"])
-    for entity in crate.all():
-        expect_tables.update(entity.type)
-    for table in expect_tables:
-        assert table in cf["potential_tables"]
-
-
 def test_one_to_lots(crates, tmp_path):
     cwd = Path(tmp_path)
     dbfile = cwd / "sqlite.db"

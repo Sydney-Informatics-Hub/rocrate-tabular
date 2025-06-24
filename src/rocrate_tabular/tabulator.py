@@ -301,13 +301,17 @@ class ROCrateTabulator:
 
     def entity_properties(self, e):
         """Returns a generator which yields all of this entity's rows"""
-        eid = e["@id"]
+        eid = e.id
         if eid is None:
             return
         ename = e["name"]
-        for key, value in e.props.items():
+        if len(ename) == 1:
+            ename = ename[0]
+        else:
+            ename = ",".join(ename)
+        for key, values in e.items():
             if key != "@id":
-                for v in get_as_list(value):
+                for v in values:
                     maybe_id = get_as_id(v)
                     if maybe_id is not None:
                         yield self.relation_row(eid, ename, key, maybe_id)
