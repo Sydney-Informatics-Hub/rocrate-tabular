@@ -518,6 +518,9 @@ class ROCrateTabulator:
 
         root_entity = self.schemaCrate.root()
         root_entity["hasPart"] = files
+        # Copy properties from the original crate root entity
+        original_root = self.crate.root()
+       
         root_entity["name"] = "CSV exported from RO-Crate"
         self.schemaCrate.write_json(rocrate_dir)
 
