@@ -343,6 +343,8 @@ class ROCrateTabulator:
         self.entity_table_plan(table)
         entities = []
         allprops = set()
+        if text_prop is not None:
+            self.text_prop = text_prop
         for entity_id in tqdm(list(self.fetch_ids(table))):
             entity = EntityRecord(tabulator=self, table=table, entity_id=entity_id)
             props = entity.build(self.fetch_properties(entity_id))
