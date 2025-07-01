@@ -118,7 +118,7 @@ class EntityRecord:
             self.props.add(prop)
             if prop == self.text_prop:
                 try:
-                    self.data[prop] = self.crate.get(target).fetch()
+                    self.data[prop] = self.tabulator.crate.get(target).fetch()
                 except TinyCrateException as e:
                     self.data[prop] = f"load failed: {e}"
             else:
@@ -235,9 +235,8 @@ class ROCrateTabulator:
         """Load the crate and build the properties and relations tables"""
         self.crate_dir = crate_uri
         try:
-            jsonld = self._load_crate(crate_uri)
-            self.crate = TinyCrate(jsonld)
-        except Exception as e:
+            self.crate = TinyCrate(crate_uri)
+        except TinyCrateException as e:
             raise ROCrateTabulatorException(f"Crate load failed: {e}")
         self.db_file = db_file
         if not rebuild:
@@ -337,12 +336,16 @@ class ROCrateTabulator:
             "value": value,
         }
 
-    def entity_table(self, table):
+    def entity_table(self, table, text_prop=None):
         """Build a db table for one type of entity. Returns a set() of all
-        the properties found during the build"""
+        the properties found during the build. text_prop is a property to
+        be loaded and indexed as text. If it's none, the tabulator object's
+        text_prop will be used."""
         self.entity_table_plan(table)
         entities = []
         allprops = set()
+        if text_prop is not None:
+            self.text_prop = text_prop
         for entity_id in tqdm(list(self.fetch_ids(table))):
             entity = EntityRecord(tabulator=self, table=table, entity_id=entity_id)
             props = entity.build(self.fetch_properties(entity_id))
