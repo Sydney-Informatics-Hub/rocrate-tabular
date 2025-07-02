@@ -29,6 +29,6 @@ def tabulator(tmp_path, crate):
     cf["potential_tables"] = []
     write_config(cf, conffile)
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
     tb.crate_to_db(crate, dbfile)
     return tb

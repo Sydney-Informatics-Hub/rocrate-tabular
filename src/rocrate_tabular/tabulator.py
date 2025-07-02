@@ -183,7 +183,7 @@ class ROCrateTabulator:
         self.schemaCrate = minimal_crate()
         self.encodedProps = {}
 
-    def read_config(self, config_file):
+    def load_config(self, config_file):
         """Load config from file"""
         close_file = False
         if isinstance(config_file, (str, PathLike)):
@@ -593,7 +593,7 @@ def main(args):
 
     if args.config.is_file():
         print(f"Loading config from {args.config}")
-        tb.read_config(args.config)
+        tb.load_config(args.config)
     else:
         print(f"Config {args.config} not found - generating default")
         tb.infer_config()

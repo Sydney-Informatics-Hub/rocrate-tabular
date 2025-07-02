@@ -33,7 +33,7 @@ def test_config(crates, tmp_path):
     # smoke test to make sure another tabulator can read the config
     tb2 = ROCrateTabulator()
     tb2.crate_to_db(crates["minimal"], dbfile)
-    tb2.read_config(conffile)
+    tb2.load_config(conffile)
 
 
 def test_one_to_lots(crates, tmp_path):
@@ -54,7 +54,7 @@ def test_one_to_lots(crates, tmp_path):
 
     # this will raise an error for too many columns
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
 
     tb.crate_to_db(crates["wide"], dbfile)
 
@@ -79,7 +79,7 @@ def test_all_props(crates, tmp_path):
     write_config(cf, conffile)
 
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
 
     tb.crate_to_db(crates["languageFamily"], dbfile)
 
