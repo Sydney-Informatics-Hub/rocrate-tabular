@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from rocrate_tabular.tabulator import ROCrateTabulator
 
 
@@ -13,7 +14,7 @@ def write_config(cf, cffile):
         json.dump(cf, cfh)
 
 
-def tabulator(tmp_path, crate):
+def tabulator_init(tmp_path, crate):
     """Does the two-pass build for a given crate but doesn't build tables.
     Returns the tabulator"""
     cwd = Path(tmp_path)

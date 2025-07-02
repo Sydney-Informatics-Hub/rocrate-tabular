@@ -1,9 +1,11 @@
-from pathlib import Path
-from rocrate_tabular.tabulator import ROCrateTabulator, parse_args, main
-from tinycrate.tinycrate import TinyCrate
-from collections import defaultdict
-from util import read_config, write_config
 import sys
+from collections import defaultdict
+from pathlib import Path
+
+from tinycrate.tinycrate import TinyCrate
+from util import read_config, tabulator_init
+
+from rocrate_tabular.tabulator import ROCrateTabulator, main, parse_args
 
 
 def test_smoke_cli(crates, tmp_path):
@@ -56,54 +58,24 @@ def test_config(crates, tmp_path):
 
 
 def test_one_to_lots(crates, tmp_path):
-    cwd = Path(tmp_path)
-    dbfile = cwd / "sqlite.db"
-    conffile = cwd / "config.json"
-    tb = ROCrateTabulator()
-    tb.crate_to_db(crates["wide"], dbfile)
-    tb.infer_config()
-    tb.write_config(conffile)
-    tb.close()
-
-    # load the config and move the potential tables to tables
-    cf = read_config(conffile)
-    cf["tables"] = cf["potential_tables"]
-    cf["potential_tables"] = []
-    write_config(cf, conffile)
+    tabulator_init(tmp_path, crates["wide"])
+    cf = read_config(tmp_path / "config.json")
 
     # this will raise an error for too many columns
-    tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb2 = ROCrateTabulator()
+    tb2.read_config(tmp_path / "config.json")
 
-    tb.crate_to_db(crates["wide"], dbfile)
+    tb2.crate_to_db(crates["wide"], tmp_path / "newdb.db")
 
     for table in cf["tables"]:
-        tb.entity_table(table)
+        tb2.entity_table(table)
 
 
 def test_all_props(crates, tmp_path):
-    cwd = Path(tmp_path)
-    dbfile = cwd / "sqlite.db"
-    conffile = cwd / "config.json"
-    tb = ROCrateTabulator()
-    tb.crate_to_db(crates["languageFamily"], dbfile)
-    tb.infer_config()
-    tb.write_config(conffile)
-    tb.close()
-
-    # load the config and move the potential tables to tables
-    cf = read_config(conffile)
-    cf["tables"] = cf["potential_tables"]
-    cf["potential_tables"] = []
-    write_config(cf, conffile)
-
-    tb = ROCrateTabulator()
-    tb.read_config(conffile)
-
-    tb.crate_to_db(crates["languageFamily"], dbfile)
+    tb = tabulator_init(tmp_path, crates["languageFamily"])
 
     # build our own list of all properties (excluding @ids)
-
+    cf = read_config(tmp_path / "config.json")
     tc = TinyCrate(crates["languageFamily"])
     props = defaultdict(set)
     for e in tc.all():
@@ -118,3 +90,23 @@ def test_all_props(crates, tmp_path):
     for table in cf["tables"]:
         all_props = tb.entity_table(table)
         assert all_props == props[table]
+
+
+def test_table_values(crates, tmp_path):
+    tb = tabulator_init(tmp_path, crates["languageFamily"])
+    cf = read_config(tmp_path / "config.json")
+    for table in cf["tables"]:
+        tb.entity_table(table)
+    tc = TinyCrate(crates["languageFamily"])
+    for table in cf["tables"]:
+        for row in tb.db.query(f'SELECT * FROM "{table}"'):
+            eid = row["entity_id"]
+            entity = tc.get(eid)
+            assert entity is not None
+            for prop in entity:
+                if prop == "@id":
+                    print("@id", row["entity_id"], entity["@id"], file=sys.stderr)
+                    assert row["entity_id"] == entity["@id"]
+                else:
+                    print(prop, row[prop], entity[prop], file=sys.stderr)
+                    assert prop in row

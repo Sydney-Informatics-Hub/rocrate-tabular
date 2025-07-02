@@ -134,7 +134,6 @@ class EntityRecord:
         author_name author_id"""
         for ep_row in self.tabulator.fetch_properties(target):
             expanded_prop = f"{prop}_{ep_row['property_label']}"
-            # Special case - if this is indexable text then we want to read t
             self.props.add(expanded_prop)
             if expanded_prop not in self.ignore_props:
                 self.set_property(
