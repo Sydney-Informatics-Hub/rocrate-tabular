@@ -342,7 +342,7 @@ wheels = [
 
 [[package]]
 name = "rocrate-tabular"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "requests" },
@@ -363,7 +363,7 @@ dev = [
 requires-dist = [
     { name = "requests", specifier = ">=2.32.3" },
     { name = "sqlite-utils", specifier = ">=3.37" },
-    { name = "tinycrate", specifier = ">=0.1.2" },
+    { name = "tinycrate", specifier = "==0.1.2" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
