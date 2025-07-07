@@ -98,7 +98,7 @@ def test_all_props(crates, tmp_path):
 
     for table in cf["tables"]:
         all_props = tb.entity_table(table)
-        assert all_props == props[table]
+        assert set(all_props) == props[table]
 
     # check that the properties are also now in the config file
     tb.write_config(conffile)
@@ -106,4 +106,4 @@ def test_all_props(crates, tmp_path):
     cf_out = read_config(conffile)
 
     for table in cf_out["tables"]:
-        assert cf_out["tables"][table]["all_props"] == list(props[table])
+        assert set(cf_out["tables"][table]["all_props"]) == props[table]
