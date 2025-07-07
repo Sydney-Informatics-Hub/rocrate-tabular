@@ -1,7 +1,6 @@
 from util import tabulator, read_config, write_config
 from pathlib import Path
 from tinycrate.tinycrate import TinyCrate
-import sys
 
 
 # FIXME this is very basic
@@ -25,8 +24,6 @@ def test_expanded_properties(crates, tmp_path):
     for prop in expand_props:
         rele = tc.deref(te, prop)
         assert rele
-        print(row, file=sys.stderr)
-        print(rele.props, file=sys.stderr)
         for relprop in rele.props:
             if not relprop == "@id":
                 eprop = f"{prop}_{relprop}"
