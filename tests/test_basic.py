@@ -1,9 +1,11 @@
-from pathlib import Path
-from rocrate_tabular.tabulator import ROCrateTabulator, parse_args, main
-from tinycrate.tinycrate import TinyCrate
-from collections import defaultdict
-from util import read_config, write_config
 import sys
+from collections import defaultdict
+from pathlib import Path
+
+from tinycrate.tinycrate import TinyCrate
+from util import read_config, write_config
+
+from rocrate_tabular.tabulator import ROCrateTabulator, main, parse_args
 
 
 def test_smoke_cli(crates, tmp_path):
@@ -52,7 +54,7 @@ def test_config(crates, tmp_path):
     # smoke test to make sure another tabulator can read the config
     tb2 = ROCrateTabulator()
     tb2.crate_to_db(crates["minimal"], dbfile)
-    tb2.read_config(conffile)
+    tb2.load_config(conffile)
 
 
 def test_one_to_lots(crates, tmp_path):
@@ -73,7 +75,7 @@ def test_one_to_lots(crates, tmp_path):
 
     # this will raise an error for too many columns
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
 
     tb.crate_to_db(crates["wide"], dbfile)
 
@@ -98,7 +100,7 @@ def test_all_props(crates, tmp_path):
     write_config(cf, conffile)
 
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
 
     tb.crate_to_db(crates["languageFamily"], dbfile)
 

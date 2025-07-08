@@ -32,7 +32,7 @@ def test_export(crates, csv_headers, tmp_path):
     write_config(cf, conffile)
 
     tb = ROCrateTabulator()
-    tb.read_config(conffile)
+    tb.load_config(conffile)
     tb.crate_to_db(crates["languageFamily"], dbfile)
 
     tb.entity_table("RepositoryObject")
@@ -45,7 +45,7 @@ def test_export(crates, csv_headers, tmp_path):
     write_config(cf, conffile)
 
     tb2 = ROCrateTabulator()
-    tb2.read_config(conffile)
+    tb2.load_config(conffile)
     tb2.crate_to_db(crates["languageFamily"], dbfile)
     tb2.entity_table("RepositoryObject")  # shouldn't need to rebuild it
     print(f"Tables: {tb2.db.tables}", file=sys.stderr)
