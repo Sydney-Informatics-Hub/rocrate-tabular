@@ -367,7 +367,8 @@ class ROCrateTabulator:
                     )
                     seq += 1
         self.db[table].insert_all(entities, pk="entity_id", replace=True, alter=True)
-        return allprops
+        self.cf["tables"][table]["all_props"] = list(allprops)
+        return list(allprops)
 
     def entity_table_plan(self, table):
         """Check entity relations to see if any need to be done as a junction
@@ -612,9 +613,8 @@ def main(args):
 
     tb.text_prop = args.text
     for table in tb.cf["tables"]:
-        logger.info(f"Building entity table for {table}")
-        allprops = tb.entity_table(table)
-        tb.cf["tables"][table]["all_props"] = list(allprops)
+        print(f"Building entity table for {table}")
+        tb.entity_table(table)
 
     tb.write_config(args.config)
     logger.info(f"""
