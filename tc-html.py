@@ -4,6 +4,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 import os
 import re
+import json
 
 def as_array(value):
     """
@@ -30,9 +31,9 @@ def initialize_prop(crate, entity_lite, prop):
     Returns:
         The resolved URI for the property
     """
-    print(f"Initializing property '{prop}'")
+    #print(f"Initializing property '{prop}'")
     uri = crate.resolve_term(prop)
-    print(f"Resolved property '{prop}' to URI '{uri}'")
+    #print(f"Resolved property '{prop}' to URI '{uri}'")
     # Initialize the property if it doesn't exist
     if uri not in entity_lite["props"]:
         entity_lite["props"][uri] = {
@@ -73,7 +74,7 @@ def expand_property_value(crate, property, value):
     
     # Process each value in the array
     for val in as_array(value):
-        print(f"Expanding property '{property}' with value: {val}")
+        #print(f"Expanding property '{property}' with value: {val}")
         return_val = {
             "value": "",
             "target_id": "",
@@ -88,7 +89,7 @@ def expand_property_value(crate, property, value):
                 
             target = crate.get(val["@id"])  # Changed from get_entity to get
             if target:
-                print(f"Found target for value '{val}' with ID '{val['@id']}'")
+                #print(f"Found target for value '{val}' with ID '{val['@id']}'")
                 return_val["target_id"] = val["@id"]
                 # Get name from target or use ID if no name
                 if target["name"]:
@@ -133,7 +134,7 @@ def crate_lite(crate):
                 crate_lite["types"][type] = []
             crate_lite["types"][type].append(entity["@id"])
         for prop, value in entity.items():
-            print(f"Processing property '{prop}' for entity '{id}'")
+            #print(f"Processing property '{prop}' for entity '{id}'")
             if prop == "@id" or prop == "@type":
                 continue
             uri = initialize_prop(crate, entity_lite, prop)
@@ -162,6 +163,7 @@ def crate_lite(crate):
                             }
                         crate_lite["ids"][target_id]["props"][uri]["rev"]=  expand_property_value(crate, prop, entity[prop])
               
+    #print(json.dumps(crate_lite, indent=2, ensure_ascii=False))
     
     return crate_lite
        
