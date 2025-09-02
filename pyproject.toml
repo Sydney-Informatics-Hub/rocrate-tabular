@@ -1,6 +1,6 @@
 [project]
 name = "rocrate-tabular"
-version = "0.1.2"
+version = "0.1.4"
 description = "A Python library to turn RO-Crates into tables"
 readme = "README.md"
 requires-python = ">=3.11"
