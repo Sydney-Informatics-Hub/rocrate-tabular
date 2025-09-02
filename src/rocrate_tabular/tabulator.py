@@ -290,20 +290,18 @@ tb.ignore_properties("CreativeWork", ["datePublished"])
         if isinstance(props, str):
             props = [props]
         for prop in props:
-            if (
-                table_name in self.config["potential_tables"]
-                and table_name not in self.config["tables"]
-            ):
-                raise ROCrateTabulatorException(
-                    f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
-                )
-            elif table_name not in self.config["potential_tables"]:
-                close_matches = difflib.get_close_matches(
-                    table_name, self.config["tables"]
-                )
-                raise ROCrateTabulatorException(
-                    f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
-                )
+            if table_name not in self.config["tables"]:
+                if table_name in self.config["potential_tables"]:
+                    raise ROCrateTabulatorException(
+                        f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
+                    )
+                else:
+                    close_matches = difflib.get_close_matches(
+                        table_name, self.config["tables"]
+                    )
+                    raise ROCrateTabulatorException(
+                        f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
+                    )
             self.config["tables"][table_name]["ignore_props"].append(prop)
             self.config["tables"][table_name]["all_props"].remove(prop)
 
@@ -311,20 +309,18 @@ tb.ignore_properties("CreativeWork", ["datePublished"])
         if isinstance(props, str):
             props = [props]
         for prop in props:
-            if (
-                table_name in self.config["potential_tables"]
-                and table_name not in self.config["tables"]
-            ):
-                raise ROCrateTabulatorException(
-                    f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
-                )
-            elif table_name not in self.config["potential_tables"]:
-                close_matches = difflib.get_close_matches(
-                    table_name, self.config["tables"]
-                )
-                raise ROCrateTabulatorException(
-                    f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
-                )
+            if table_name not in self.config["tables"]:
+                if table_name in self.config["potential_tables"]:
+                    raise ROCrateTabulatorException(
+                        f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
+                    )
+                else:
+                    close_matches = difflib.get_close_matches(
+                        table_name, self.config["tables"]
+                    )
+                    raise ROCrateTabulatorException(
+                        f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
+                    )
             self.config["tables"][table_name]["expand_props"].append(prop)
             self.config["tables"][table_name]["all_props"].remove(prop)
 
