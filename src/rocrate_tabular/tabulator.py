@@ -174,8 +174,11 @@ class EntityRecord:
             self.junctions[prop].append(target_id)
 
 
-# TODO refactor into UserDict
 class Config(collections.UserDict):
+    """
+    Helper class to provide a default empty config and for pretty display in notebooks.
+    """
+
     def __init__(self, _dict=None):
         if not _dict:
             self.data = {"export_queries": {}, "tables": {}, "potential_tables": {}}
@@ -237,7 +240,6 @@ class ROCrateTabulator:
     def use_tables(self, table_names):
         if isinstance(table_names, str):
             table_names = [table_names]
-            # TODO: also check for if its not a string or list
         for table_name in table_names:
             if table_name in self.config["tables"]:
                 raise ROCrateTabulatorException(
@@ -342,7 +344,6 @@ tb.ignore_properties("CreativeWork", ["datePublished"])
         else:
             config_file.seek(0)
 
-    # TODO: report method that (code example) shows you how to use a table (summary etc etc)
     def infer_config(self):
         """Create a default config based on the properties table"""
         if self.db is None:
@@ -364,7 +365,7 @@ tb.ignore_properties("CreativeWork", ["datePublished"])
 Potential tables:
 {", ".join(self.config["potential_tables"].keys())}
 
-To create your tables run: (example code, replace with your desired table and properties)
+To create your tables run: (example code, replace with your desired tables)
 ```python
 tb.use_tables(["CreativeWork", "Person"])
 ```
