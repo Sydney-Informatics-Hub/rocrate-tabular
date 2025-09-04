@@ -642,35 +642,6 @@ tb.use_tables(["CreativeWork", "Person"])
                     if definition:
                         print("definition", definition["rdfs:comment"])
                         column_props["description"] = definition["rdfs:comment"]
-                        if definition["rangeIncludes"]:
-                            column_props["rangeIncludes"] = definition["rangeIncludes"]
-                            self.schemaCrate.add(
-                                definition["@type"], uri, definition.items()
-                            )
-
-                            term_set = self.crate.get(
-                                definition["rangeIncludes"]["@id"]
-                            )
-                            if term_set and term_set.type == "DefinedTermSet":
-                                self.schemaCrate.add(
-                                    "DefinedTermSet",
-                                    term_set["@id"],
-                                    term_set.items(),
-                                )
-
-                            terms = [
-                                e
-                                for e in self.crate.all()
-                                if e.type == "DefinedTerm"
-                                and e["inDefinedTermSet"]
-                                and e["inDefinedTermSet"]["@id"]
-                                == definition["rangeIncludes"]["@id"]
-                            ]
-                            for term in terms:
-                                self.schemaCrate.add(
-                                    term["@type"], term["@id"], term.items()
-                                )
-
                 # TODO -- look up local definitions and add a description
                 col_id = "#COLUMN_" + csv_filename + "_" + key
                 self.schemaCrate.add("csvw:Column", col_id, column_props)
