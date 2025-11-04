@@ -286,6 +286,9 @@ directly to the `.config` property.
 Here is an example of building a database with two tables
 and then converting one of the tables to a dataframe:
 
+Note that the property to load as Files is configured separately
+using the `.text_prop` property.
+
 
     from rocrate_tabular.tabulator import ROCrateTabulator
 
@@ -310,6 +313,8 @@ and then converting one of the tables to a dataframe:
             },
         },
     }
+
+    tb.text_prop = "ldac:mainText"
 
     print("Building properties table")
     tb.crate_to_db(CRATE, DBFILE)
