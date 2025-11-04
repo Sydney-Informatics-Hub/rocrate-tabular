@@ -88,7 +88,7 @@ Every entity type in the crate will have an entry in the
 `potential_tables` object, indexed by entity types.
 
 
-## Second pass: building entity tables and CSV 
+### Second pass: building entity tables and CSV 
 
 To actually build tables for the required entities, you need to
 add the entities you want to the `tables` object. For example,
@@ -184,12 +184,77 @@ uninmportant ones to `ignore_props`. For example:
 
 ## Ignoring properties
 
+Any properties added to the `ignore_props` list for a table's
+config will be ignored and not added to the table or CSV export.
 
 ## Expanding properties
 
+The `expand_props` field in a table's config is used to tell the
+tabulator to try to follow references from a particular property
+and bring the values from linked entities into the primary
+table as columns. For example, here is a fragment of an
+RO-Crate with a CreativeWork and a Person who is its author:
+
+    {
+        "@id": "#a_creative_work",
+        "@type": "CreativeWork",
+        "name": "A Creative Work",
+        "description": "A creative work",
+        "author": { "@id": "#jane_smith" }
+    },
+    {
+        "@id": "#jane_smith",
+        "@type": "Person",
+        "name": "Jane Smith"
+    }
+
+If "author" is in `expand_props` on the "CreativeWork" entry in
+the "tables" section of the config, the following additional
+columns will be created in the CreativeWork table:
+
+    author_@id
+    author_@type
+    author_name
+
+If the tabulator finds multiple linked entites (a CreativeWork
+with more than one author, in the example) its behaviour changes
+depending on the maximum number of relations it finds for these
+entities in the entire crate.
+
+If there are no CreativeWorks with more than 10 authors, multiple
+sets of columns are added to the primary table, as in:
+
+    author1_@id
+    author1_@type
+    author1_name
+
+    author2_@id
+    author2_@type
+    author2_name
+
+If more than 10 relations are found, a junction table is created
+which links CreativeWorks to Authors, and will be listed in the
+`junctions` section of the CreativeWorks config.
+
+Note: this is a bit of a hack and a future version of the
+tabulator should allow you to specify what behaviour you want,
+or give other options like including multiple relations as a
+JSON value in a single column.
 
 ## Loading main text files
 
+A common use case for RO-Crates containing text is to build a
+table which has both the metadata describing a document, and the
+text of the document.  The tablulator accepts a command-line
+argument, `--text`, which specifies the property pointing to
+a File entity representing the text to be indexed (for *any*
+entity). For example, to load files pointed to by the
+`ldac:mainText` property, use:
+
+    > uv run tabulator --text "ldac:mainText" -c config.json ./crate crate.db
+
+In a future release, this option will be moved to the config
+file.
 
 ## CSV exports
 
@@ -205,36 +270,67 @@ config file, for example:
             "RepositoryObject": {
                 "all_props": [ ... ],
                 "ignore_props": [ ... ],
-                "expand_props": [ ... ]                
+                "expand_props": [ .. ]
             }
         }
     }
 
-## Expanded properties
+## Using tabulator as a library
 
-The "expand_props" field in a table's config can be used to tell the tabulator
-to try to follow references from a particular property and bring the values
-from linked entities into the primary table as columns. For example, here is
-a fragment of an RO-Crate with a CreativeWork and a Person who is its author:
+The tabulator can also be used as a library from within another
+Python script or a Jupyter notebook. The interface is via an
+ROCrateTabulator object, which you can configure either by
+loading a config file, or by assigning a Python data structure
+directly to the `.config` property.
 
-    {
-        "@id": "#a_creative_work",
-        "@type": "CreativeWork",
-        "name": "A Creative Work",
-        "description": "A creative work",
-        "author": { "@id": "#jane_smith" }
-    },
-    {
-        "@id": "#jane_smith",
-        "@type": "Person",
-        "name": "Jane Smith"
+Here is an example of building a database with two tables
+and then converting one of the tables to a dataframe:
+
+
+    from rocrate_tabular.tabulator import ROCrateTabulator
+
+    import pandas as pd
+    import sqlite3
+
+    CRATE = "./crates/ice-aus/"
+    DBFILE = "./ice-aus.db"
+
+    tb = ROCrateTabulator()
+
+    tb.config = {
+        "tables": {
+            "RepositoryObject": {
+                "all_props": [],
+                "expand_props": [ "author" ],
+                "ignore_props": [ "@type", "conformsTo" ],
+            },
+            "Person": {
+                "all_props": [],
+                "ignore_props": [ "@type", "conformsTo" ],
+            },
+        },
     }
 
-If "author" is in "expand_props" on the "CreativeWork" entry in the "tables"
-section of the config, the following additional columns will be created in the
-CreativeWork table:
+    print("Building properties table")
+    tb.crate_to_db(CRATE, DBFILE)
+    print("Building RepositoryObject table")
+    tb.entity_table("RepositoryObject")
+    print("Building Person table")
+    tb.entity_table("Person")
 
-    author_@id
-    author_@type
-    author_name
+    # get a dataframe from the sqlite db
+    # pandas needs a sqlite3 connection
 
+    conn = sqlite3.connect(DBFILE)
+    df = pd.read_sql_query("SELECT * FROM RepositoryObject", conn)
+
+    print(df.columns)
+    print(df.head())
+
+
+
+cnx = sqlite3.connect("cooee.db")
+
+df = pd.read_sql_query("SELECT * FROM RepositoryObject", cnx)
+
+df.head()
