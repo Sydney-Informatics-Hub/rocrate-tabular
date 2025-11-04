@@ -18,23 +18,22 @@ The command-line tool uses a two-pass process. The first pass
 loads the RO-Crate, analyses it, and writes out two files: a
 sqlite database file which contains a single table, `properties`,
 which has all of the properties of all of the entities in the
-crate,and a template for a config file.
+crate, and a config file which has been prepopulated with the
+entities found in the RO-Crate. (The `properties` table isn't
+useful to end-users - it's an intermediate representation which
+has all of the metadata info in the RO-Crate in a form which
+is more efficient to query than JSON.)
 
-The first pass is only necessary if you don't know anything
+This first pass is only necessary if you don't know anything
 about the structure or entities in the RO-Crate. If you already
-know what entities you're building tables for and how they
+know what entities you're building tables for, and how they
 are related to one another, you can write your own config
 file and skip straight to the second pass.
 
-The `properties` table isn't useful to end-users - it's an
-intermediate representation which has all of the metadata info
-of the RO-Crate in a form which is more efficient to query than
-the JSON.
-
-You then edit the config file to tell the tabulator which
-types of entities are to be rendered into tables, and which
-properties should be ignored or expanded in this process, and
-run the command-line tool again. On the second pass, these
+The prepopulated config file from the first pass can be edited
+to tell the tabulator which types of entities are to be
+rendered into tables, and which properties should be ignored
+or expanded in this process. On the second pass, these
 new tables are added to the sqlite database file, and optionally
 written out as CSV files.
 
@@ -49,7 +48,8 @@ found:
 
     > uv run tabulator -c config.json ./crate crate.db
 
-The new `config.json` file will look something like the following:
+The new `config.json` file will look something like the following
+(depending on what the tabulator finds in the RO-Crate):
 
     {
         "export_queries": {},
@@ -85,10 +85,9 @@ The new `config.json` file will look something like the following:
     }
 
 Every entity type in the crate will have an entry in the
-`potential_tables` object, indexed by entity types.
+`potential_tables` object.
 
-
-### Second pass: building entity tables and CSV 
+### Second pass: building entity tables and CSV
 
 To actually build tables for the required entities, you need to
 add the entities you want to the `tables` object. For example,
@@ -115,7 +114,7 @@ the config file should look like the following:
     }
 
 To build the tables, run the tabulator with a config file which
-has at least one entry in the `tables` section. 
+has at least one entry in the `tables` section.
 
     > uv run tabulator -c config.json ./crate crate.db
 
