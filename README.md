@@ -332,10 +332,7 @@ using the `.text_prop` property.
     print(df.columns)
     print(df.head())
 
-
-
-cnx = sqlite3.connect("cooee.db")
-
-df = pd.read_sql_query("SELECT * FROM RepositoryObject", cnx)
-
-df.head()
+Note that this usage of the library assumes that you are ok
+with loading the whole crate and writing it out as a sqlite db
+to disk somewhere. A later version of this library should support
+some kind of streamed model where we don't have  to do this.
