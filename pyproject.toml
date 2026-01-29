@@ -1,13 +1,13 @@
 [project]
 name = "rocrate-tabular"
-version = "0.1.2"
+version = "0.2.0"
 description = "A Python library to turn RO-Crates into tables"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "requests>=2.32.3",
     "sqlite-utils>=3.37",
-    "tinycrate==0.1.2",
+    "tinycrate>=0.1.5",
     "tqdm>=4.67.1",
 ]
 
@@ -18,14 +18,10 @@ tabulator = "rocrate_tabular.tabulator:cli"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
-    "pre-commit>=4.0.1",
-    "pytest>=8.3.3",
-    "ruff>=0.7.4",
-]
-
 [dependency-groups]
 dev = [
     "pytest-httpserver>=1.1.0",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.3",
+    "ruff>=0.7.4",
 ]
