@@ -13,6 +13,8 @@ import re
 import requests
 import sys
 from dataclasses import dataclass, field
+import cProfile
+import pstats
 
 # FIXME: add real logging
 
@@ -730,10 +732,19 @@ def parse_args(arg_list=None):
         action="store_true",
         help="Report on the database structure",
     )
+    ap.add_argument(
+    	"--profile",
+    	default=None,
+    	type=Path,
+    	help="Use cProfile and write the output to this file"
+    )
     return ap.parse_args(arg_list)
 
 
 def main(args):
+    if args.profile:
+        pr = cProfile.Profile()
+        pr.enable()
     tb = ROCrateTabulator()
 
     if Path(args.output).is_file() and not args.rebuild:
@@ -769,6 +780,9 @@ Updated config file: {args.config}, edit this file to change the flattening conf
         tb.find_csv_contents()
 
     tb.export_csv(args.csv)
+    if args.profile:
+        pr.disable()
+        pr.dump_stats(args.profile)
 
 
 def cli():
