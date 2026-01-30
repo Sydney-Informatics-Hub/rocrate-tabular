@@ -570,8 +570,7 @@ tb.use_tables(["CreativeWork", "Person"])
             """,
             [entity_id],
         )
-        for prop in properties:
-            yield prop
+        return properties
 
     def fetch_relation_counts(self, t):
         query = """
