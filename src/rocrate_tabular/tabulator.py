@@ -549,7 +549,7 @@ tb.use_tables(["CreativeWork", "Person"])
 
     def fetch_ids(self, entity_type):
         """Yield @id for all entities whose @type matches entity_type."""
-        for e in self.tabulator.crate.graph:
+        for e in self.crate.graph:
             etype = e.get("@type")
 
             if not etype:
@@ -562,6 +562,13 @@ tb.use_tables(["CreativeWork", "Person"])
             else:
                 if etype == entity_type:
                     yield e.get("@id")
+
+    def get_entity_dict(self, entity_id):
+        """Helper to get entity dict from crate.graph by ID"""
+        for e in self.crate.graph:
+            if e.get("@id") == entity_id:
+                return e
+        return None
                     
     def fetch_properties(self, entity_id):
         """Yield all properties for an entity from the graph"""
@@ -575,19 +582,22 @@ tb.use_tables(["CreativeWork", "Person"])
             if key == "@id":
                 continue
 
-            target_id = None
-            prop_value = value
-
-            # Check if the value is a reference to another entity
-            if isinstance(value, dict) and "@id" in value:
-                target_id = value["@id"]
-                prop_value = None
-
-            yield {
-                "property_label": key,
-                "value": prop_value,
-                "target_id": target_id
-            }
+            # Handle both single values and lists
+            for v in get_as_list(value):
+                target_id = get_as_id(v)
+                prop_value = v if target_id is None else None
+                
+                # If this is a reference, get the target entity's name as the value
+                if target_id is not None:
+                    target_entity = self.get_entity_dict(target_id)
+                    if target_entity:
+                        prop_value = target_entity.get("name")
+                
+                yield {
+                    "property_label": key,
+                    "value": prop_value,
+                    "target_id": target_id
+                }
 
     def fetch_relation_counts(self, t):
         query = """
