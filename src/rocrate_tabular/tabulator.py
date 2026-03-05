@@ -547,13 +547,22 @@ tb.use_tables(["CreativeWork", "Person"])
         for t in [row["value"] for row in rows]:
             yield t
 
-    def get_entity_dict(self, entity_id):
-        """Helper to get entity dict from crate.graph by ID"""
+    def fetch_ids(self, entity_type):
+        """Yield @id for all entities whose @type matches entity_type."""
         for e in self.tabulator.crate.graph:
-            if e.get("@id") == entity_id:
-                return e
-        return None
+            etype = e.get("@type")
 
+            if not etype:
+                continue
+
+            # @type can be a list or string
+            if isinstance(etype, list):
+                if entity_type in etype:
+                    yield e.get("@id")
+            else:
+                if etype == entity_type:
+                    yield e.get("@id")
+                    
     def fetch_properties(self, entity_id):
         """Yield all properties for an entity from the graph"""
 
