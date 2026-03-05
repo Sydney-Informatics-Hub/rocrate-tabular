@@ -555,17 +555,30 @@ tb.use_tables(["CreativeWork", "Person"])
         return None
 
     def fetch_properties(self, entity_id):
-        """return a generator which yields all properties for an entity"""
-        properties = self.db.query(
-            """
-            SELECT property_label, value, target_id
-            FROM property
-            WHERE source_id = ?
-            """,
-            [entity_id],
-        )
-        for prop in properties:
-            yield prop
+        """Yield all properties for an entity from the graph"""
+
+        entity = self.get_entity_dict(entity_id)
+
+        if not entity:
+            return
+
+        for key, value in entity.items():
+            if key == "@id":
+                continue
+
+            target_id = None
+            prop_value = value
+
+            # Check if the value is a reference to another entity
+            if isinstance(value, dict) and "@id" in value:
+                target_id = value["@id"]
+                prop_value = None
+
+            yield {
+                "property_label": key,
+                "value": prop_value,
+                "target_id": target_id
+            }
 
     def fetch_relation_counts(self, t):
         query = """
