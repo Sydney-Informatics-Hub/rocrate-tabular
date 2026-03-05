@@ -572,7 +572,6 @@ tb.use_tables(["CreativeWork", "Person"])
                     
     def fetch_properties(self, entity_id):
         """Yield all properties for an entity from the graph"""
-
         entity = self.get_entity_dict(entity_id)
 
         if not entity:
