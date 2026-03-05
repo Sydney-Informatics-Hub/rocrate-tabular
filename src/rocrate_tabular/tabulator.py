@@ -556,12 +556,12 @@ tb.use_tables(["CreativeWork", "Person"])
                 continue
 
             # @type can be a list or string
-            #if isinstance(etype, list):
-            #    if entity_type in etype:
-            #        yield e.get("@id")
-            #else:
-            if etype == entity_type:
-                yield e.get("@id")
+            if isinstance(etype, list):
+                if entity_type in etype:
+                    yield e.get("@id")
+            else:
+                if etype == entity_type:
+                    yield e.get("@id")
 
     def get_entity_dict(self, entity_id):
         """Helper to get entity dict from crate.graph by ID"""
