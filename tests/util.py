@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from rocrate_tabular.tabulator import ROCrateTabulator
 
 
