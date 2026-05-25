@@ -536,8 +536,8 @@ tb.use_tables(["CreativeWork", "Person"])
             if prop_counts["n_links"] > MAX_NUMBERED_COLS:
                 label = prop_counts["property_label"]
                 logger.info(f"{table}.{label} > {MAX_NUMBERED_COLS} relations")
-                self.cf["tables"][table]["junctions"].append(label)
-
+                self.config["tables"][table]["junctions"].append(label)
+               
     # Some helper methods for wrapping SQLite statements
 
     def fetch_types(self):
