@@ -1,17 +1,21 @@
+from os import PathLike
+
+from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
+from argparse import ArgumentParser
+from pathlib import Path
+from sqlite_utils import Database
+from tqdm import tqdm
+import difflib
+import collections
+
 import csv
 import json
 import logging
 import re
 import sys
-from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from os import PathLike
-from pathlib import Path
 
-import requests
-from sqlite_utils import Database
-from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +111,10 @@ class EntityRecord:
         """Takes the properties of this entity and builds a dictionary to
         be inserted into the database, plus any junction records required"""
         self.data["entity_id"] = self.entity_id
-        self.cf = self.tabulator.cf["tables"][self.table]
+        self.config = self.tabulator.config["tables"][self.table]
         self.text_prop = self.tabulator.text_prop
-        self.expand_props = self.cf.get("expand_props", [])
-        self.ignore_props = self.cf.get("ignore_props", [])
+        self.expand_props = self.config.get("expand_props", [])
+        self.ignore_props = self.config.get("ignore_props", [])
         for prop_row in properties:
             prop = prop_row["property_label"]
             value = prop_row["value"]
@@ -145,7 +149,7 @@ class EntityRecord:
 
     def set_property(self, prop, value, target_id):
         """Add a property to entity_data, and add the target_id if defined"""
-        if prop in self.cf["junctions"]:
+        if prop in self.config["junctions"]:
             self.set_property_relational(prop, value, target_id)
         else:
             self.set_property_numbered(prop, value)
@@ -173,27 +177,166 @@ class EntityRecord:
             self.junctions[prop].append(target_id)
 
 
+class Config(collections.UserDict):
+    """
+    Helper class to provide a default empty config and for pretty display in notebooks.
+    """
+
+    def __init__(self, _dict=None):
+        if not _dict:
+            self.data = {"export_queries": {}, "tables": {}, "potential_tables": {}}
+        else:
+            self.data = _dict
+
+    def _display_(self):
+        return self.data
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+
+class OutputList(collections.UserList):
+    """
+    Helper class for pretty output in notebooks.
+    """
+
+    def __init__(self, initlist, message=None):
+        self.message = message
+        super().__init__(initlist)
+
+    def _repr_markdown_(self):
+        if self.message:
+            return self.message
+        else:
+            return self[:]
+
+
+class OutputDict(collections.UserDict):
+    """
+    Helper class for pretty output in notebooks.
+    """
+
+    def __init__(self, *args, **kwargs):
+        return dict.__init__(self, *args, **kwargs)
+
+    def _repr_markdown_(self):
+        if self.message:
+            return self.message
+        else:
+            return self[:]
+
+
 class ROCrateTabulator:
     def __init__(self):
         self.crate_dir = None
         self.db_file = None
         self.db = None
         self.crate = None
-        self.cf = None
+        self.config = Config()
         self.text_prop = None
         self.schemaCrate = minimal_crate()
         self.encodedProps = {}
+
+    def use_tables(self, table_names):
+        if isinstance(table_names, str):
+            table_names = [table_names]
+        for table_name in table_names:
+            if table_name in self.config["tables"]:
+                raise ROCrateTabulatorException(
+                    f"already generated the `{table_name}` table"
+                )
+            if table_name not in self.config["potential_tables"]:
+                close_matches = difflib.get_close_matches(
+                    table_name, self.config["potential_tables"]
+                )
+                raise ROCrateTabulatorException(
+                    f"`{table_name}` is not recognised as a potential table. Did you mean: `{close_matches[0]}`?"
+                )
+            self.config["tables"][table_name] = self.config["potential_tables"][
+                table_name
+            ]
+            del self.config["potential_tables"][table_name]
+
+        message = "### Properties\n"
+        for table in self.config["tables"]:
+            props = self.entity_table(table)
+            self.config["tables"][table]["all_props"] = list(props)
+
+            message += f"<details><summary>{table}</summary>"
+            message += "<ul>"
+            for prop in props:
+                message += f"<li><code>{prop}</code></li>"
+            message += "</ul></details>\n\n"
+
+        message += """
+To attempt to expand references from a particular property
+and bring the values from linked entities into the primary
+table as columns: (example code, replace with your desired table and properties)
+
+```python
+tb.expand_properties("CreativeWork", ["author"])
+```
+
+To exlude a property from the table:
+
+```python
+tb.ignore_properties("CreativeWork", ["datePublished"])
+```
+        """
+
+        return OutputList(self.config["tables"], message)
+
+    def ignore_properties(self, table_name, props):
+        if isinstance(props, str):
+            props = [props]
+        for prop in props:
+            if table_name not in self.config["tables"]:
+                if table_name in self.config["potential_tables"]:
+                    raise ROCrateTabulatorException(
+                        f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
+                    )
+                else:
+                    close_matches = difflib.get_close_matches(
+                        table_name, self.config["tables"]
+                    )
+                    raise ROCrateTabulatorException(
+                        f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
+                    )
+            self.config["tables"][table_name]["ignore_props"].append(prop)
+            self.config["tables"][table_name]["all_props"].remove(prop)
+
+    def expand_properties(self, table_name, props):
+        if isinstance(props, str):
+            props = [props]
+        for prop in props:
+            if table_name not in self.config["tables"]:
+                if table_name in self.config["potential_tables"]:
+                    raise ROCrateTabulatorException(
+                        f'please run `use_tables(["{table_name}"])` before ignoring a property on this table'
+                    )
+                else:
+                    close_matches = difflib.get_close_matches(
+                        table_name, self.config["tables"]
+                    )
+                    raise ROCrateTabulatorException(
+                        f"`{table_name}` is not recognised as a table name. Did you mean `{close_matches[0]}`?"
+                    )
+            self.config["tables"][table_name]["expand_props"].append(prop)
+            self.config["tables"][table_name]["all_props"].remove(prop)
 
     def load_config(self, config_file):
         """Load config from file"""
         close_file = False
         if isinstance(config_file, (str, PathLike)):
-            config_file = open(config_file, "r")
+            config_file = open(config_file, "r", encoding="utf-8")
             close_file = True
         else:
             config_file.seek(0)
 
-        self.cf = json.load(config_file)
+        self.config = json.load(config_file)
 
         if close_file:
             config_file.close()
@@ -206,25 +349,39 @@ class ROCrateTabulator:
             raise ROCrateTabulatorException(
                 "Need to run crate_to_db before infer_config"
             )
-        self.cf = {"export_queries": {}, "tables": {}, "potential_tables": {}}
+        self.config = Config()
 
         for attype in self.fetch_types():
-            self.cf["potential_tables"][attype] = {
+            self.config["potential_tables"][attype] = {
                 "all_props": [],
                 "ignore_props": [],
                 "expand_props": [],
             }
 
+        return OutputList(
+            self.fetch_types(),
+            f"""
+Potential tables:
+{", ".join(self.config["potential_tables"].keys())}
+
+To create your tables run: (example code, replace with your desired tables)
+```python
+tb.use_tables(["CreativeWork", "Person"])
+```
+""",
+        )
+
     def write_config(self, config_file):
         """Write the config file with any changes made"""
         close_file = False
         if isinstance(config_file, (str, PathLike)):
-            config_file = open(config_file, "w")
+            config_file = open(config_file, "w", encoding="utf-8")
             close_file = True
         else:
             config_file.seek(0)
 
-        json.dump(self.cf, config_file, indent=4)
+        # `default=dict` makes json.dump pass our Config subclass of UserDict into dict(), making it serialisable
+        json.dump(self.config, config_file, indent=4, default=dict)
 
         if close_file:
             config_file.close()
@@ -367,14 +524,14 @@ class ROCrateTabulator:
                     )
                     seq += 1
         self.db[table].insert_all(entities, pk="entity_id", replace=True, alter=True)
-        self.cf["tables"][table]["all_props"] = list(allprops)
+        self.config["tables"][table]["all_props"] = list(allprops)
         return list(allprops)
 
     def entity_table_plan(self, table):
         """Check entity relations to see if any need to be done as a junction
         table to avoid huge numbers of expanded columns"""
-        if "junctions" not in self.cf["tables"][table]:
-            self.cf["tables"][table]["junctions"] = []
+        if "junctions" not in self.config["tables"][table]:
+            self.config["tables"][table]["junctions"] = []
         for prop_counts in self.fetch_relation_counts(table):
             if prop_counts["n_links"] > MAX_NUMBERED_COLS:
                 label = prop_counts["property_label"]
@@ -394,30 +551,55 @@ class ROCrateTabulator:
             yield t
 
     def fetch_ids(self, entity_type):
-        """return a generator which yields all ids of this type"""
-        rows = self.db.query(
-            """
-            SELECT p.source_id
-            FROM property p
-            WHERE p.property_label = '@type' AND p.value = ?
-        """,
-            [entity_type],
-        )
-        for entity_id in [row["source_id"] for row in rows]:
-            yield entity_id
+        """Yield @id for all entities whose @type matches entity_type."""
+        for e in self.crate.graph:
+            etype = e.get("@type")
 
+            if not etype:
+                continue
+
+            # @type can be a list or string
+            if isinstance(etype, list):
+                if entity_type in etype:
+                    yield e.get("@id")
+            else:
+                if etype == entity_type:
+                    yield e.get("@id")
+
+    def get_entity_dict(self, entity_id):
+        """Helper to get entity dict from crate.graph by ID"""
+        for e in self.crate.graph:
+            if e.get("@id") == entity_id:
+                return e
+        return None
+                    
     def fetch_properties(self, entity_id):
-        """return a generator which yields all properties for an entity"""
-        properties = self.db.query(
-            """
-            SELECT property_label, value, target_id
-            FROM property
-            WHERE source_id = ?
-            """,
-            [entity_id],
-        )
-        for prop in properties:
-            yield prop
+        """Yield all properties for an entity from the graph"""
+        entity = self.get_entity_dict(entity_id)
+
+        if not entity:
+            return
+
+        for key, value in entity.items():
+            if key == "@id":
+                continue
+
+            # Handle both single values and lists
+            for v in get_as_list(value):
+                target_id = get_as_id(v)
+                prop_value = v if target_id is None else None
+                
+                # If this is a reference, get the target entity's name as the value
+                if target_id is not None:
+                    target_entity = self.get_entity_dict(target_id)
+                    if target_entity:
+                        prop_value = target_entity.get("name")
+                
+                yield {
+                    "property_label": key,
+                    "value": prop_value,
+                    "target_id": target_id
+                }
 
     def fetch_relation_counts(self, t):
         query = """
@@ -436,9 +618,9 @@ class ROCrateTabulator:
     def export_csv(self, rocrate_dir):
         """Export csvs as configured"""
 
-        queries = self.cf["export_queries"]
+        queries = self.config["export_queries"]
         # print("Global props", self.global_props)
-        # self.cf["global_props"] = list(self.global_props)
+        # self.config["global_props"] = list(self.global_props)
 
         # Ensure rocrate_dir exists if it's provided
         if rocrate_dir is not None:
@@ -452,7 +634,7 @@ class ROCrateTabulator:
             csv_path = csv_filename
             if rocrate_dir is not None:
                 csv_path = Path(rocrate_dir) / csv_filename
-            with open(csv_path, "w", newline="") as csvfile:
+            with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(
                     csvfile, fieldnames=result[0].keys(), quoting=csv.QUOTE_MINIMAL
                 )
@@ -612,9 +794,10 @@ def main(args):
         tb.infer_config()
 
     tb.text_prop = args.text
-    for table in tb.cf["tables"]:
+    for table in tb.config["tables"]:
         print(f"Building entity table for {table}")
-        tb.entity_table(table)
+        allprops = tb.entity_table(table)
+        tb.config["tables"][table]["all_props"] = list(allprops)
 
     tb.write_config(args.config)
     logger.info(f"""
