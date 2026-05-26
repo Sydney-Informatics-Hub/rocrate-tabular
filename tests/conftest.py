@@ -9,6 +9,7 @@ def crates():
         "textfiles": "./tests/crates/textfiles",
         "utf8": "./tests/crates/utf8",
         "languageFamily": "./tests/crates/languageFamily",
+        "COOEE": "./tests/crates/COOEE",
     }
 
 
