@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
 
-import requests
 from sqlite_utils import Database
 from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
 from tqdm import tqdm
@@ -459,15 +458,6 @@ tb.use_tables(["CreativeWork", "Person"])
                         + ": "
                         + str(row["n_links"])
                     )
-
-    def _load_crate(self, crate_uri):
-        if crate_uri[:4] == "http":
-            response = requests.get(crate_uri)
-            return response.json()
-        with open(
-            Path(crate_uri) / "ro-crate-metadata.json", "r", encoding="utf-8"
-        ) as jfh:
-            return json.load(jfh)
 
     def entity_properties(self, e):
         """Returns a generator which yields all of this entity's rows"""
