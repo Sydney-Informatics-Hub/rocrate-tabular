@@ -4,19 +4,18 @@ import difflib
 import json
 import logging
 import re
-import requests
 import sys
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
 
+import requests
 from sqlite_utils import Database
 from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-
 
 # TERMINOLOGY
 
