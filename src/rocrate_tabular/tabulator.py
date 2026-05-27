@@ -1,21 +1,19 @@
-from os import PathLike
-
-from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
-from argparse import ArgumentParser
-from pathlib import Path
-from sqlite_utils import Database
-from tqdm import tqdm
-import difflib
 import collections
-
 import csv
+import difflib
 import json
 import logging
 import re
+import requests
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from os import PathLike
+from pathlib import Path
 
+from sqlite_utils import Database
+from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +66,8 @@ PROPERTIES = {
     "value": str,
 }
 
-WARN_NUMBERED_COLS = 10 # warns if a table has > this many cols
-MAX_NUMBERED_COLS = 100 # convert to array if a table has > this many cols
+WARN_NUMBERED_COLS = 10  # warns if a table has > this many cols
+MAX_NUMBERED_COLS = 100  # convert to array if a table has > this many cols
 
 
 def get_as_list(v):
@@ -92,6 +90,7 @@ def get_as_id(v):
 
 class ROCrateTabulatorException(Exception):
     pass
+
 
 @dataclass
 class EntityRecord:
@@ -157,8 +156,8 @@ class EntityRecord:
                 self.set_property_numbered(prop, value)
                 if target_id:
                     self.set_property_numbered(f"{prop}_id", target_id)
-            else: # array
-                self.set_property_array(prop, value) 
+            else:  # array
+                self.set_property_array(prop, value)
 
     # TODO: we should only call this if there are more than one
     def set_property_numbered(self, prop, value):
@@ -553,16 +552,19 @@ tb.use_tables(["CreativeWork", "Person"])
             if label not in self.config["tables"][table]["multiple"]:
                 if self.multiple == "numbered":
                     if prop_counts["n_links"] > MAX_NUMBERED_COLS:
-                        logger.warning(f"{table} property {label} has more than the maximum {MAX_NUMBERED_COLS}")
-                        logger.warning(f"Creating a junction table - to override this, set multiples in config")
+                        logger.warning(
+                            f"{table} property {label} has more than the maximum {MAX_NUMBERED_COLS}"
+                        )
+                        logger.warning(
+                            "Creating a junction table - to override this, set multiples in config"
+                        )
                         self.config["tables"][table]["multiple"][label] = "junction"
                     else:
                         self.config["tables"][table]["multiple"][label] = "numbered"
                 else:
                     self.config["tables"][table]["multiple"][label] = self.multiple
 
-
-# Some helper methods for wrapping SQLite statements
+    # Some helper methods for wrapping SQLite statements
 
     def fetch_types(self):
         """return all types in the database"""
@@ -622,7 +624,7 @@ tb.use_tables(["CreativeWork", "Person"])
                 yield {
                     "property_label": key,
                     "value": prop_value,
-                    "target_id": target_id
+                    "target_id": target_id,
                 }
 
     def fetch_relation_counts(self, t):
@@ -773,7 +775,7 @@ def parse_args(arg_list=None):
         "--multiple",
         default="numbered",
         type=str,
-        help="Default strategy for properties with multiple targets: one of numbered,array,junctions"
+        help="Default strategy for properties with multiple targets: one of numbered,array,junctions",
     )
     ap.add_argument(
         "--concat",
@@ -845,7 +847,7 @@ Updated config file: {args.config}, edit this file to change the flattening conf
 
 def cli():
     args = parse_args()
-    if args.multiple not in [ "numbered", "array", "junctions" ]:
+    if args.multiple not in ["numbered", "array", "junctions"]:
         print("--multiple must be one of numbered, array or junctions")
     else:
         main(args)
