@@ -1,3 +1,4 @@
+import pytest
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -82,13 +83,13 @@ def test_one_to_lots(crates, tmp_path):
     for table in cf["tables"]:
         tb.entity_table(table)
 
-
-def test_all_props(crates, tmp_path):
+@pytest.mark.parametrize("crate", ["languageFamily", "COOEE"])
+def test_all_props(crates, tmp_path, crate):
     cwd = Path(tmp_path)
     dbfile = cwd / "sqlite.db"
     conffile = cwd / "config.json"
     tb = ROCrateTabulator()
-    tb.crate_to_db(crates["languageFamily"], dbfile)
+    tb.crate_to_db(crates[crate], dbfile)
     tb.infer_config()
     tb.write_config(conffile)
     tb.close()
@@ -102,11 +103,11 @@ def test_all_props(crates, tmp_path):
     tb = ROCrateTabulator()
     tb.load_config(conffile)
 
-    tb.crate_to_db(crates["languageFamily"], dbfile)
+    tb.crate_to_db(crates[crate], dbfile)
 
     # build our own list of all properties (excluding @ids)
 
-    tc = TinyCrate(crates["languageFamily"])
+    tc = TinyCrate(crates[crate])
     props = defaultdict(set)
     for e in tc.all():
         for prop, val in e.items():

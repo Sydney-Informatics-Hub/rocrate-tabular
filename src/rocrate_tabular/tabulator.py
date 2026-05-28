@@ -1,24 +1,20 @@
-from os import PathLike
-
-from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
-from argparse import ArgumentParser
-from pathlib import Path
-from sqlite_utils import Database
-from tqdm import tqdm
-import difflib
 import collections
-
 import csv
+import difflib
 import json
 import logging
 import re
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from os import PathLike
+from pathlib import Path
 
+from sqlite_utils import Database
+from tinycrate.tinycrate import TinyCrate, TinyCrateException, minimal_crate
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-
 
 # TERMINOLOGY
 
@@ -68,7 +64,8 @@ PROPERTIES = {
     "value": str,
 }
 
-MAX_NUMBERED_COLS = 10
+WARN_NUMBERED_COLS = 10  # warns if a table has > this many cols
+MAX_NUMBERED_COLS = 100  # convert to array if a table has > this many cols
 
 
 def get_as_list(v):
@@ -149,14 +146,17 @@ class EntityRecord:
 
     def set_property(self, prop, value, target_id):
         """Add a property to entity_data, and add the target_id if defined"""
-        if prop in self.config["junctions"]:
+        multiple = self.config["multiple"].get(prop, self.tabulator.multiple)
+        if multiple == "junction":
             self.set_property_relational(prop, value, target_id)
         else:
-            self.set_property_numbered(prop, value)
-            if target_id:
-                self.set_property_numbered(f"{prop}_id", target_id)
+            if multiple == "numbered":
+                self.set_property_numbered(prop, value)
+                if target_id:
+                    self.set_property_numbered(f"{prop}_id", target_id)
+            else:
+                self.set_property_array(prop, value)
 
-    # TODO: we should only call this if there are more than one
     def set_property_numbered(self, prop, value):
         if prop in self.data:
             # Find the first available integer to append to property_name
@@ -165,7 +165,14 @@ class EntityRecord:
                 i += 1
             prop = f"{prop}_{i}"
             if i > MAX_NUMBERED_COLS:
-                raise ROCrateTabulatorException(f"Too many columns for {prop}")
+                raise ROCrateTabulatorException(
+                    f"Too many columns for {self.table}.{prop}"
+                )
+            if i > WARN_NUMBERED_COLS:
+                logger.warning(
+                    f"Property {self.table}.{prop} has more than"
+                    f" {WARN_NUMBERED_COLS} columns"
+                )
         self.data[prop] = value
 
     def set_property_relational(self, prop, value, target_id):
@@ -175,6 +182,15 @@ class EntityRecord:
             self.junctions[prop] = [target_id]
         else:
             self.junctions[prop].append(target_id)
+
+    def set_property_array(self, prop, value):
+        """This collects properties into a list as the default.
+        Lists with single values are unwrapped in the build_table
+        method, because it needs to see if any of the table's rows
+        have > 1 elements."""
+        if prop not in self.data:
+            self.data[prop] = []
+        self.data[prop].append(value)
 
 
 class Config(collections.UserDict):
@@ -237,6 +253,7 @@ class ROCrateTabulator:
         self.crate = None
         self.config = Config()
         self.text_prop = None
+        self.multiple = "numbered"
         self.schemaCrate = minimal_crate()
         self.encodedProps = {}
 
@@ -446,15 +463,6 @@ tb.use_tables(["CreativeWork", "Person"])
                         + str(row["n_links"])
                     )
 
-    def _load_crate(self, crate_uri):
-        if crate_uri[:4] == "http":
-            response = requests.get(crate_uri)
-            return response.json()
-        with open(
-            Path(crate_uri) / "ro-crate-metadata.json", "r", encoding="utf-8"
-        ) as jfh:
-            return json.load(jfh)
-
     def entity_properties(self, e):
         """Returns a generator which yields all of this entity's rows"""
         eid = e["@id"]
@@ -523,21 +531,78 @@ tb.use_tables(["CreativeWork", "Person"])
                         alter=True,
                     )
                     seq += 1
+        self.fix_array_cols(table, allprops, entities)
         self.db[table].insert_all(entities, pk="entity_id", replace=True, alter=True)
         self.config["tables"][table]["all_props"] = list(allprops)
         return list(allprops)
 
+    def dump_table_analysis(self, table, allprops, entities):
+        logger.info(f"Analysis of  table {table}")
+        for prop in allprops:
+            logger.info(f"{table}.{prop}")
+            maxlen = 0
+            for entity in entities:
+                if prop in entity:
+                    if type(entity[prop]) is list:
+                        if len(entity[prop]) > maxlen:
+                            maxlen = len(entity[prop])
+            logger.info(f"max length = {maxlen}")
+        logger.info("----")
+
+    def fix_array_cols(self, table, allprops, entities):
+        """Find properties where every entity is a single-element
+        list and unwrap them. Warn for properties which are arrays.
+        FIXME: should this check the config?"""
+        for prop in allprops:
+            maxlen = 0
+            for entity in entities:
+                if prop in entity:
+                    if type(entity[prop]) is list:
+                        if len(entity[prop]) > maxlen:
+                            maxlen = len(entity[prop])
+            if maxlen == 0:
+                logging.warning(f"fix_array_cols: no values for {prop}")
+            else:
+                if maxlen == 1:
+                    for entity in entities:
+                        if prop in entity:
+                            entity[prop] = self.unwrap_array(entity[prop])
+                else:
+                    logging.info(f"{table}.{prop} left as array")
+
+    def unwrap_array(self, maybe_array):
+        if type(maybe_array) is list:
+            if len(maybe_array) > 0:
+                if len(maybe_array) > 1:
+                    logging.warn("unwrap_array with too many elements")
+                return maybe_array[0]
+            else:
+                return ""
+        logging.warn("unwrap_array got scalar value")
+        return maybe_array
+
     def entity_table_plan(self, table):
         """Check entity relations to see if any need to be done as a junction
         table to avoid huge numbers of expanded columns"""
-        if "junctions" not in self.config["tables"][table]:
-            self.config["tables"][table]["junctions"] = []
+        if "multiple" not in self.config["tables"][table]:
+            self.config["tables"][table]["multiple"] = {}
         for prop_counts in self.fetch_relation_counts(table):
-            if prop_counts["n_links"] > MAX_NUMBERED_COLS:
-                label = prop_counts["property_label"]
-                logger.info(f"{table}.{label} > {MAX_NUMBERED_COLS} relations")
-                self.config["tables"][table]["junctions"].append(label)
-               
+            label = prop_counts["property_label"]
+            if label not in self.config["tables"][table]["multiple"]:
+                if self.multiple == "numbered":
+                    if prop_counts["n_links"] > MAX_NUMBERED_COLS:
+                        logger.warning(
+                            f"{table} property {label} has more than the maximum {MAX_NUMBERED_COLS}"
+                        )
+                        logger.warning(
+                            "Creating a junction table - to override this, set multiples in config"
+                        )
+                        self.config["tables"][table]["multiple"][label] = "junction"
+                    else:
+                        self.config["tables"][table]["multiple"][label] = "numbered"
+                else:
+                    self.config["tables"][table]["multiple"][label] = self.multiple
+
     # Some helper methods for wrapping SQLite statements
 
     def fetch_types(self):
@@ -572,7 +637,7 @@ tb.use_tables(["CreativeWork", "Person"])
             if e.get("@id") == entity_id:
                 return e
         return None
-                    
+
     def fetch_properties(self, entity_id):
         """Yield all properties for an entity from the graph"""
         entity = self.get_entity_dict(entity_id)
@@ -588,17 +653,17 @@ tb.use_tables(["CreativeWork", "Person"])
             for v in get_as_list(value):
                 target_id = get_as_id(v)
                 prop_value = v if target_id is None else None
-                
+
                 # If this is a reference, get the target entity's name as the value
                 if target_id is not None:
                     target_entity = self.get_entity_dict(target_id)
                     if target_entity:
                         prop_value = target_entity.get("name")
-                
+
                 yield {
                     "property_label": key,
                     "value": prop_value,
-                    "target_id": target_id
+                    "target_id": target_id,
                 }
 
     def fetch_relation_counts(self, t):
@@ -713,8 +778,8 @@ tb.use_tables(["CreativeWork", "Person"])
 
 
 # Style guide: all print() output should be in the section below this -
-# the library code above needs to be able to work in contexts where it has to
-# write an sqlite database to stdout
+# the library code above needs to be able to work in contexts where it
+# needs to write the sqlite db to stdout, and print() will muck this up
 
 
 def parse_args(arg_list=None):
@@ -742,6 +807,14 @@ def parse_args(arg_list=None):
         default=None,
         type=str,
         help="Entities of this type will be loaded as text into the database",
+    )
+    # this is the default, should be able to override it in config
+    ap.add_argument(
+        "-m",
+        "--multiple",
+        default="numbered",
+        type=str,
+        help="Default strategy for properties with multiple targets: one of numbered,array,junctions",
     )
     ap.add_argument(
         "--concat",
@@ -794,8 +867,9 @@ def main(args):
         tb.infer_config()
 
     tb.text_prop = args.text
+    tb.multiple = args.multiple
     for table in tb.config["tables"]:
-        print(f"Building entity table for {table}")
+        logger.info(f"Building entity table for {table}")
         allprops = tb.entity_table(table)
         tb.config["tables"][table]["all_props"] = list(allprops)
 
@@ -812,7 +886,10 @@ Updated config file: {args.config}, edit this file to change the flattening conf
 
 def cli():
     args = parse_args()
-    main(args)
+    if args.multiple not in ["numbered", "array", "junctions"]:
+        print("--multiple must be one of numbered, array or junctions")
+    else:
+        main(args)
 
 
 if __name__ == "__main__":
