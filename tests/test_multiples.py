@@ -1,12 +1,15 @@
+import json
 from pathlib import Path
-from rocrate_tabular.tabulator import ROCrateTabulator
+
 from tinycrate.tinycrate import TinyCrate
 from util import read_config, write_config
+
+from rocrate_tabular.tabulator import ROCrateTabulator
 
 
 def test_wide(crates, tmp_path):
     cwd = Path(tmp_path)
-    dbfile = Path(tmp_path) / "wide.db"
+    dbfile = cwd / "wide.db"
     conffile = cwd / "wide.json"
     tb = ROCrateTabulator()
     tb.crate_to_db(crates["wide"], dbfile)
@@ -41,7 +44,41 @@ def test_wide(crates, tmp_path):
 
     for row in rows:
         files[row["file_id"]] = row["file"]
-
     orig_crate = TinyCrate(crates["wide"])
     dataset = orig_crate.get("./")
     assert dataset
+
+
+def test_store_array(crates, tmp_path):
+    cwd = Path(tmp_path)
+    dbfile = cwd / "cooee.db"
+    conffile = cwd / "cooee.json"
+    tb = ROCrateTabulator()
+    tb.crate_to_db(crates["COOEE"], dbfile)
+    tb.infer_config()
+    tb.write_config(conffile)
+    tb.close()
+
+    cf = read_config(conffile)
+    cf["tables"]["Language"] = cf["potential_tables"]["Language"]
+    write_config(cf, conffile)
+
+    tb = ROCrateTabulator()
+    tb.load_config(conffile)
+    tb.multiple = "array"
+    tb.crate_to_db(crates["COOEE"], dbfile)
+
+    tb.entity_table("Language")
+
+    rows = tb.db.query("""
+        SELECT l.entity_id as language_id,
+               l.name as language,
+               l.alternateName as alternateName
+        FROM Language as l
+        """)
+
+    cooee = TinyCrate(crates["COOEE"])
+    for row in rows:
+        elt = cooee.get(row["language_id"])
+        altnames = json.loads(row["alternateName"])
+        assert altnames == elt["alternateName"]
