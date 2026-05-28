@@ -154,10 +154,9 @@ class EntityRecord:
                 self.set_property_numbered(prop, value)
                 if target_id:
                     self.set_property_numbered(f"{prop}_id", target_id)
-            else:  # array
+            else:
                 self.set_property_array(prop, value)
 
-    # TODO: we should only call this if there are more than one
     def set_property_numbered(self, prop, value):
         if prop in self.data:
             # Find the first available integer to append to property_name
@@ -185,8 +184,13 @@ class EntityRecord:
             self.junctions[prop].append(target_id)
 
     def set_property_array(self, prop, value):
-        """Store an array as a JSON literal"""
-        self.data[prop] = json.dumps(value)
+        """This collects properties into a list as the default.
+        Lists with single values are unwrapped in the build_table
+        method, because it needs to see if any of the table's rows
+        have > 1 elements."""
+        if prop not in self.data:
+            self.data[prop] = []
+        self.data[prop].append(value)
 
 
 class Config(collections.UserDict):
@@ -527,9 +531,55 @@ tb.use_tables(["CreativeWork", "Person"])
                         alter=True,
                     )
                     seq += 1
+        self.fix_array_cols(table, allprops, entities)
         self.db[table].insert_all(entities, pk="entity_id", replace=True, alter=True)
         self.config["tables"][table]["all_props"] = list(allprops)
         return list(allprops)
+
+    def dump_table_analysis(self, table, allprops, entities):
+        logger.info(f"Analysis of  table {table}")
+        for prop in allprops:
+            logger.info(f"{table}.{prop}")
+            maxlen = 0
+            for entity in entities:
+                if prop in entity:
+                    if type(entity[prop]) is list:
+                        if len(entity[prop]) > maxlen:
+                            maxlen = len(entity[prop])
+            logger.info(f"max length = {maxlen}")
+        logger.info("----")
+
+    def fix_array_cols(self, table, allprops, entities):
+        """Find properties where every entity is a single-element
+        list and unwrap them. Warn for properties which are arrays.
+        FIXME: should this check the config?"""
+        for prop in allprops:
+            maxlen = 0
+            for entity in entities:
+                if prop in entity:
+                    if type(entity[prop]) is list:
+                        if len(entity[prop]) > maxlen:
+                            maxlen = len(entity[prop])
+            if maxlen == 0:
+                logging.warning(f"fix_array_cols: no values for {prop}")
+            else:
+                if maxlen == 1:
+                    for entity in entities:
+                        if prop in entity:
+                            entity[prop] = self.unwrap_array(entity[prop])
+                else:
+                    logging.info(f"{table}.{prop} left as array")
+
+    def unwrap_array(self, maybe_array):
+        if type(maybe_array) is list:
+            if len(maybe_array) > 0:
+                if len(maybe_array) > 1:
+                    logging.warn("unwrap_array with too many elements")
+                return maybe_array[0]
+            else:
+                return ""
+        logging.warn("unwrap_array got scalar value")
+        return maybe_array
 
     def entity_table_plan(self, table):
         """Check entity relations to see if any need to be done as a junction
@@ -819,7 +869,7 @@ def main(args):
     tb.text_prop = args.text
     tb.multiple = args.multiple
     for table in tb.config["tables"]:
-        print(f"Building entity table for {table}")
+        logger.info(f"Building entity table for {table}")
         allprops = tb.entity_table(table)
         tb.config["tables"][table]["all_props"] = list(allprops)
 
